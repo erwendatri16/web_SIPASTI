@@ -1,0 +1,293 @@
+<?php
+require_once '../../config/database.php';
+require_once '../../config/auth.php';
+
+// Redirect jika belum login atau bukan admin
+if (!isAdminLoggedIn()) {
+    header('Location: ../../auth/login.php');
+    exit;
+}
+
+$error = '';
+$success = '';
+
+// Proses tambah barang
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_barang'])) {
+    $kode_barang = trim($_POST['kode_barang'] ?? '');
+    $nama_barang = trim($_POST['nama_barang'] ?? '');
+    $kategori = trim($_POST['kategori'] ?? '');
+    $kondisi = trim($_POST['kondisi'] ?? '');
+    $stok = (int)($_POST['stok'] ?? 0);
+    
+    // Validasi
+    if (empty($kode_barang) || empty($nama_barang) || empty($kategori) || empty($kondisi)) {
+        $error = 'Semua field harus diisi!';
+    } elseif ($stok < 0) {
+        $error = 'Stok tidak boleh negatif!';
+    } else {
+        // Cek apakah kode barang sudah ada
+        $stmt = $pdo->prepare("SELECT id_barang FROM inventaris WHERE kode_barang = :kode_barang");
+        $stmt->execute([':kode_barang' => $kode_barang]);
+        
+        if ($stmt->fetch()) {
+            $error = 'Kode barang sudah terdaftar!';
+        } else {
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO inventaris (kode_barang, nama_barang, kategori, kondisi, stok) 
+                    VALUES (:kode_barang, :nama_barang, :kategori, :kondisi, :stok)
+                ");
+                
+                $stmt->execute([
+                    ':kode_barang' => $kode_barang,
+                    ':nama_barang' => $nama_barang,
+                    ':kategori' => $kategori,
+                    ':kondisi' => $kondisi,
+                    ':stok' => $stok
+                ]);
+                
+                $success = '✅ Barang berhasil ditambahkan!';
+                
+                // Reset form
+                $_POST = [];
+                
+            } catch (PDOException $e) {
+                $error = '❌ Terjadi kesalahan: ' . $e->getMessage();
+            }
+        }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tambah Barang - SIPASTI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-500: #667eea;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            font-family: 'Poppins', sans-serif;
+            padding-top: 80px;
+        }
+        
+        .navbar-custom {
+            background: var(--primary-gradient);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .card-form {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px 40px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .form-control {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 15px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-submit {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-back {
+            background: white;
+            color: var(--primary-500);
+            border: 2px solid var(--primary-500);
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .btn-back:hover {
+            background: #f0f4ff;
+            transform: translateY(-2px);
+        }
+        
+        .alert {
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+        
+        .required {
+            color: #ef4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="../dashboard.php">
+                <i class="bi bi-boxes me-2"></i>SIPASTI - Admin
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="../dashboard.php">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="index.php">Inventaris</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../peminjaman/index.php">Peminjaman</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../scan_pengembalian.php">Scan QR</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../laporan/index.php">Laporan</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../../auth/logout.php">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="index.php" class="btn-back">
+            <i class="bi bi-arrow-left me-2"></i>Kembali ke Inventaris
+        </a>
+        
+        <div class="text-center mb-5">
+            <h1 class="fw-bold mb-3">📦 Tambah Barang Baru</h1>
+            <p class="text-muted fs-5">Isi form berikut untuk menambahkan barang ke inventaris</p>
+        </div>
+
+        <?php if ($error): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i><?= htmlspecialchars($error) ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if ($success): ?>
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill me-2"></i><?= htmlspecialchars($success) ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="card-form">
+            <form method="POST" action="">
+                <div class="form-group">
+                    <label for="kode_barang">
+                        Kode Barang <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="kode_barang" 
+                           name="kode_barang" 
+                           placeholder="Contoh: BRG-001"
+                           value="<?= htmlspecialchars($_POST['kode_barang'] ?? '') ?>"
+                           required>
+                    <small class="text-muted">Kode unik untuk identifikasi barang</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="nama_barang">
+                        Nama Barang <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="nama_barang" 
+                           name="nama_barang" 
+                           placeholder="Contoh: Proyektor Epson"
+                           value="<?= htmlspecialchars($_POST['nama_barang'] ?? '') ?>"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="kategori">
+                        Kategori <span class="required">*</span>
+                    </label>
+                    <select class="form-control" id="kategori" name="kategori" required>
+                        <option value="">-- Pilih Kategori --</option>
+                        <option value="Elektronik" <?= (($_POST['kategori'] ?? '') == 'Elektronik') ? 'selected' : '' ?>>Elektronik</option>
+                        <option value="Furniture" <?= (($_POST['kategori'] ?? '') == 'Furniture') ? 'selected' : '' ?>>Furniture</option>
+                        <option value="Jaringan" <?= (($_POST['kategori'] ?? '') == 'Jaringan') ? 'selected' : '' ?>>Jaringan</option>
+                        <option value="Aksesoris" <?= (($_POST['kategori'] ?? '') == 'Aksesoris') ? 'selected' : '' ?>>Aksesoris</option>
+                        <option value="Listrik" <?= (($_POST['kategori'] ?? '') == 'Listrik') ? 'selected' : '' ?>>Listrik</option>
+                         <option value="Ruangan" <?= (($_POST['kategori'] ?? '') == 'Ruangan') ? 'selected' : '' ?>>Ruangan</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="kondisi">
+                        Kondisi <span class="required">*</span>
+                    </label>
+                    <select class="form-control" id="kondisi" name="kondisi" required>
+                        <option value="">-- Pilih Kondisi --</option>
+                        <option value="Baik" <?= (($_POST['kondisi'] ?? '') == 'Baik') ? 'selected' : '' ?>>Baik</option>
+                        <option value="Rusak Ringan" <?= (($_POST['kondisi'] ?? '') == 'Rusak Ringan') ? 'selected' : '' ?>>Rusak Ringan</option>
+                        <option value="Rusak Berat" <?= (($_POST['kondisi'] ?? '') == 'Rusak Berat') ? 'selected' : '' ?>>Rusak Berat</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="stok">
+                        Stok <span class="required">*</span>
+                    </label>
+                    <input type="number" 
+                           class="form-control" 
+                           id="stok" 
+                           name="stok" 
+                           placeholder="Jumlah stok awal"
+                           value="<?= htmlspecialchars($_POST['stok'] ?? '') ?>"
+                           min="0"
+                           required>
+                    <small class="text-muted">Jumlah barang yang tersedia</small>
+                </div>
+                
+                <button type="submit" name="tambah_barang" class="btn btn-submit">
+                    <i class="bi bi-save me-2"></i>Simpan Barang
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
